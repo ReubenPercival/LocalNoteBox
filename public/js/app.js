@@ -4,7 +4,9 @@ const App = {
   searchQuery: '',
   selectedTag: null,
   saveTimer: null,
+  searchTimer: null,
   currentNote: null,
+  pendingTags: [],
 
   async init() {
     await this.refreshNotes();
@@ -29,18 +31,23 @@ const App = {
     }
     this.notes = notes;
     this.renderNoteList();
+    this.updateNoteCount();
+  },
+
+  updateNoteCount() {
+    document.getElementById('note-count').textContent = this.notes.length;
   },
 
   renderNoteList() {
     const list = document.getElementById('note-list');
     if (this.notes.length === 0) {
-      list.innerHTML = '<div class="note-list-empty">No notes yet</div>';
+      list.innerHTML = '<div class="note-list-empty">No notes yet<div class="empty-sub">Create one with the button above</div></div>';
       return;
     }
     list.innerHTML = this.notes.map(n => `
       <div class="note-item ${n.id === this.activeNoteId ? 'active' : ''}" data-id="${n.id}">
         <div class="note-item-title">${this.escapeHtml(n.title || 'Untitled')}</div>
-        <div class="note-item-excerpt">${this.escapeHtml((n.content || '').slice(0, 100))}</div>
+        <div class="note-item-excerpt">${this.escapeHtml((n.content || '').slice(0, 150))}</div>
         ${(n.tags || []).length > 0 ? `<div class="note-item-tags">${n.tags.map(t => `<span class="tag">${this.escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="note-item-date">${this.formatTime(n.updatedAt)}</div>
       </div>
@@ -52,13 +59,52 @@ const App = {
     const container = document.getElementById('tag-filter');
     let html = '';
     if (this.selectedTag) {
-      html += `<button class="tag-pill-clear" data-action="clear-tag">✕ clear filter</button>`;
+      html += `<button class="tag-pill-clear" data-action="clear-tag">&#x2715; clear</button>`;
     }
     allTags.forEach(tag => {
       const active = tag === this.selectedTag;
       html += `<button class="tag-pill ${active ? 'active' : ''}" data-tag="${this.escapeHtml(tag)}">${this.escapeHtml(tag)}</button>`;
     });
     container.innerHTML = html;
+  },
+
+  renderEditorTags(tags) {
+    const container = document.getElementById('editor-tags');
+    this.pendingTags = [...tags];
+    let html = (tags || []).map(t => `
+      <span class="editor-tag" data-tag="${this.escapeHtml(t)}">
+        ${this.escapeHtml(t)}
+        <span class="tag-remove" data-tag="${this.escapeHtml(t)}">&#x2715;</span>
+      </span>
+    `).join('');
+    html += `<input type="text" class="editor-tag-input" id="tag-input" placeholder="Add tag..." />`;
+    container.innerHTML = html;
+    const input = document.getElementById('tag-input');
+    input.focus = input.focus.bind(input);
+    input.addEventListener('keydown', (e) => this.onTagKeydown(e));
+    input.addEventListener('blur', () => this.commitTagInput());
+  },
+
+  onTagKeydown(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      this.commitTagInput();
+    } else if (e.key === 'Backspace' && e.target.value === '' && this.pendingTags.length > 0) {
+      this.pendingTags.pop();
+      this.renderEditorTags(this.pendingTags);
+      this.scheduleSave();
+    }
+  },
+
+  commitTagInput() {
+    const input = document.getElementById('tag-input');
+    if (!input) return;
+    const val = input.value.trim().replace(/,/g, '').trim();
+    if (val && !this.pendingTags.includes(val)) {
+      this.pendingTags.push(val);
+    }
+    this.renderEditorTags(this.pendingTags);
+    this.scheduleSave();
   },
 
   async selectNote(id) {
@@ -68,11 +114,11 @@ const App = {
     document.getElementById('editor-empty').style.display = 'none';
     document.getElementById('editor-active').style.display = 'flex';
     document.getElementById('note-title').value = note.title || '';
-    document.getElementById('note-tags').value = (note.tags || []).join(', ');
+    this.renderEditorTags(note.tags || []);
     document.getElementById('note-content').value = note.content || '';
     this.updatePreview();
     this.renderNoteList();
-    document.getElementById('save-indicator').textContent = 'Saved';
+    this.setIndicator('Saved', 'saved');
   },
 
   clearEditor() {
@@ -86,24 +132,28 @@ const App = {
   async saveCurrentNote() {
     if (!this.currentNote) return;
     const title = document.getElementById('note-title').value.trim();
-    const tagsRaw = document.getElementById('note-tags').value;
     const content = document.getElementById('note-content').value;
-    const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
     this.currentNote.title = title || 'Untitled';
-    this.currentNote.tags = tags;
+    this.currentNote.tags = [...this.pendingTags];
     this.currentNote.content = content;
     const id = await NotesDB.put(this.currentNote);
     this.currentNote.id = id;
     this.activeNoteId = id;
-    document.getElementById('save-indicator').textContent = 'Saved';
+    this.setIndicator('Saved', 'saved');
     await this.refreshNotes();
     this.renderTagFilter();
   },
 
   scheduleSave() {
     if (this.saveTimer) clearTimeout(this.saveTimer);
-    document.getElementById('save-indicator').textContent = 'Unsaved changes...';
+    this.setIndicator('Unsaved...', 'saving');
     this.saveTimer = setTimeout(() => this.saveCurrentNote(), 400);
+  },
+
+  setIndicator(text, cls) {
+    const el = document.getElementById('save-indicator');
+    el.textContent = text;
+    el.className = 'save-indicator' + (cls ? ' ' + cls : '');
   },
 
   updatePreview() {
@@ -128,22 +178,47 @@ const App = {
     await this.refreshNotes();
     this.renderTagFilter();
     this.selectNote(id);
-    document.getElementById('note-title').focus();
+    setTimeout(() => {
+      const el = document.getElementById('note-title');
+      if (el) el.focus();
+    }, 50);
   },
 
   async deleteNote() {
     if (!this.activeNoteId) return;
-    if (!confirm('Delete this note?')) return;
-    await NotesDB.delete(this.activeNoteId);
-    this.activeNoteId = null;
-    this.currentNote = null;
-    await this.refreshNotes();
-    this.renderTagFilter();
-    if (this.notes.length > 0) {
-      this.selectNote(this.notes[0].id);
-    } else {
-      this.clearEditor();
-    }
+    this.showConfirm('Delete note?', 'This cannot be undone.', async () => {
+      await NotesDB.delete(this.activeNoteId);
+      this.activeNoteId = null;
+      this.currentNote = null;
+      await this.refreshNotes();
+      this.renderTagFilter();
+      if (this.notes.length > 0) {
+        this.selectNote(this.notes[0].id);
+      } else {
+        this.clearEditor();
+      }
+    });
+  },
+
+  showConfirm(title, message, onOk) {
+    const modal = document.getElementById('confirm-modal');
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-message').textContent = message;
+    modal.style.display = 'flex';
+    const ok = document.getElementById('confirm-ok');
+    const cancel = document.getElementById('confirm-cancel');
+    const cleanup = () => {
+      modal.style.display = 'none';
+      ok.removeEventListener('click', handleOk);
+      cancel.removeEventListener('click', handleCancel);
+    };
+    const handleOk = () => { cleanup(); onOk(); };
+    const handleCancel = () => { cleanup(); };
+    ok.addEventListener('click', handleOk);
+    cancel.addEventListener('click', handleCancel);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) cleanup();
+    }, { once: true });
   },
 
   async exportNotes() {
@@ -152,7 +227,7 @@ const App = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `localnotebox-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `localnotebox-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   },
@@ -175,7 +250,7 @@ const App = {
         await this.refreshNotes();
         this.renderTagFilter();
         if (this.notes.length > 0) this.selectNote(this.notes[0].id);
-        document.getElementById('save-indicator').textContent = `Imported ${notes.length} notes`;
+        this.setIndicator(`Imported ${notes.length} notes`, 'saved');
       } catch (err) {
         alert('Import failed: ' + err.message);
       }
@@ -196,7 +271,7 @@ const App = {
     const url = document.getElementById('sync-url').value.trim();
     const passphrase = document.getElementById('sync-passphrase').value;
     if (!url || !passphrase) {
-      document.getElementById('sync-status').textContent = 'Please fill in server URL and passphrase.';
+      document.getElementById('sync-status').textContent = 'Fill in server URL and passphrase.';
       return;
     }
     document.getElementById('sync-status').textContent = 'Encrypting and pushing...';
@@ -212,7 +287,7 @@ const App = {
     const url = document.getElementById('sync-url').value.trim();
     const passphrase = document.getElementById('sync-passphrase').value;
     if (!url || !passphrase) {
-      document.getElementById('sync-status').textContent = 'Please fill in server URL and passphrase.';
+      document.getElementById('sync-status').textContent = 'Fill in server URL and passphrase.';
       return;
     }
     document.getElementById('sync-status').textContent = 'Pulling and decrypting...';
@@ -229,7 +304,7 @@ const App = {
       await this.refreshNotes();
       this.renderTagFilter();
       if (this.notes.length > 0) this.selectNote(this.notes[0].id);
-      document.getElementById('sync-status').textContent = `Sync pull complete! Restored ${notes.length} notes.`;
+      document.getElementById('sync-status').textContent = `Restored ${notes.length} notes.`;
     } catch (e) {
       document.getElementById('sync-status').textContent = 'Error: ' + e.message;
     }
@@ -250,8 +325,11 @@ const App = {
     document.getElementById('btn-sync-pull').addEventListener('click', () => this.syncPull());
 
     document.getElementById('search-input').addEventListener('input', (e) => {
-      this.searchQuery = e.target.value.trim();
-      this.refreshNotes();
+      if (this.searchTimer) clearTimeout(this.searchTimer);
+      this.searchTimer = setTimeout(() => {
+        this.searchQuery = e.target.value.trim();
+        this.refreshNotes();
+      }, 200);
     });
 
     document.getElementById('note-list').addEventListener('click', (e) => {
@@ -277,12 +355,20 @@ const App = {
       }
     });
 
-    const autoSaveFields = ['note-title', 'note-tags', 'note-content'];
-    autoSaveFields.forEach(id => {
-      document.getElementById(id).addEventListener('input', () => {
-        this.updatePreview();
+    document.getElementById('editor-tags').addEventListener('click', (e) => {
+      const remove = e.target.closest('.tag-remove');
+      if (remove) {
+        const tag = remove.dataset.tag;
+        this.pendingTags = this.pendingTags.filter(t => t !== tag);
+        this.renderEditorTags(this.pendingTags);
         this.scheduleSave();
-      });
+      }
+    });
+
+    document.getElementById('note-title').addEventListener('input', () => this.scheduleSave());
+    document.getElementById('note-content').addEventListener('input', () => {
+      this.updatePreview();
+      this.scheduleSave();
     });
 
     document.getElementById('toggle-preview').addEventListener('change', (e) => {

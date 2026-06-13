@@ -10,42 +10,53 @@
   <div id="app">
     <header>
       <h1>LocalNoteBox</h1>
-      <div class="header-controls">
+      <div class="search-wrap">
+        <span class="search-icon">&#x1F50D;</span>
         <input type="text" id="search-input" placeholder="Search notes..." />
-        <button id="btn-export" title="Export notes as JSON">Export</button>
-        <button id="btn-import" title="Import notes from JSON">Import</button>
-        <button id="btn-sync" title="Sync encrypted notes to server">Sync</button>
+      </div>
+      <div class="header-actions">
+        <button id="btn-export" class="btn-icon" title="Export notes as JSON"><span class="ico">&#x2191;</span> Export</button>
+        <button id="btn-import" class="btn-icon" title="Import notes from JSON"><span class="ico">&#x2193;</span> Import</button>
+        <button id="btn-sync" class="btn-icon" title="Sync encrypted notes to server"><span class="ico">&#x21BB;</span> Sync</button>
       </div>
     </header>
     <main>
       <aside id="sidebar">
+        <div class="sidebar-header">
+          <span class="label">Notes</span>
+          <span id="note-count" class="count">0</span>
+        </div>
         <button id="btn-new-note" class="btn-primary">+ New Note</button>
         <div id="tag-filter"></div>
         <div id="note-list"></div>
       </aside>
       <section id="editor">
         <div id="editor-empty" class="editor-empty">
-          <div class="empty-icon">📝</div>
+          <div class="empty-icon">&#x1F4DD;</div>
           <h2>LocalNoteBox</h2>
-          <p>Your notes are stored locally in your browser.</p>
-          <p>Create a new note or select one from the sidebar.</p>
+          <p>Your notes live in your browser. Nothing leaves your machine.</p>
+          <div class="shortcut-hint">
+            <span><kbd>Ctrl+N</kbd> new note</span>
+            <span><kbd>Ctrl+S</kbd> save</span>
+          </div>
         </div>
         <div id="editor-active" class="editor-active" style="display:none">
           <div class="editor-header">
             <input type="text" id="note-title" placeholder="Note title..." />
-            <input type="text" id="note-tags" placeholder="Tags (comma separated)" />
+            <div id="editor-tags" class="editor-tags"></div>
           </div>
           <div class="editor-panes">
             <textarea id="note-content" placeholder="Write your note in Markdown..."></textarea>
+            <div class="pane-divider"></div>
             <div id="note-preview" class="markdown-preview"></div>
           </div>
           <div class="editor-footer">
             <label class="toggle-label">
               <input type="checkbox" id="toggle-preview" checked />
-              <span>Live Preview</span>
+              <span>Preview</span>
             </label>
             <span id="save-indicator" class="save-indicator"></span>
-            <button id="btn-delete-note" class="btn-danger">Delete Note</button>
+            <button id="btn-delete-note" class="btn-icon btn-danger"><span class="ico">&#x2715;</span> Delete</button>
           </div>
         </div>
       </section>
@@ -71,6 +82,17 @@
         <button id="btn-sync-close" class="btn-ghost">Close</button>
       </div>
       <p id="sync-status" class="sync-status"></p>
+    </div>
+  </div>
+
+  <div id="confirm-modal" class="modal-overlay" style="display:none">
+    <div class="modal confirm-modal">
+      <h2 id="confirm-title">Confirm</h2>
+      <p id="confirm-message">Are you sure?</p>
+      <div class="modal-actions">
+        <button id="confirm-cancel" class="btn-ghost">Cancel</button>
+        <button id="confirm-ok" class="btn-danger">Delete</button>
+      </div>
     </div>
   </div>
 
