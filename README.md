@@ -1,6 +1,6 @@
 # LocalNoteBox
 
-> Lightweight self-hosted notes app — no dependencies, no build step, no npm.
+> Lightweight self-hosted notes app — no dependencies, no build step, no npm ( actually no just FUCK npm. Npm is an awful thing and is like 99% malware) .
 
 ## Quick start
 
