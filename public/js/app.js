@@ -7,14 +7,29 @@ const App = {
   searchTimer: null,
   currentNote: null,
   pendingTags: [],
+  theme: 'dark',
 
   async init() {
+    this.theme = localStorage.getItem('lnb-theme') || 'dark';
+    this.applyTheme();
     await this.refreshNotes();
     this.renderTagFilter();
     this.bindEvents();
     if (this.notes.length > 0) {
       this.selectNote(this.notes[0].id);
     }
+  },
+
+  toggleTheme() {
+    this.theme = this.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('lnb-theme', this.theme);
+    this.applyTheme();
+  },
+
+  applyTheme() {
+    document.documentElement.setAttribute('data-theme', this.theme);
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.textContent = this.theme === 'dark' ? '\u263E' : '\u2600';
   },
 
   async refreshNotes() {
@@ -323,6 +338,7 @@ const App = {
     document.getElementById('btn-sync-close').addEventListener('click', () => this.hideSyncModal());
     document.getElementById('btn-sync-push').addEventListener('click', () => this.syncPush());
     document.getElementById('btn-sync-pull').addEventListener('click', () => this.syncPull());
+    document.getElementById('btn-theme').addEventListener('click', () => this.toggleTheme());
 
     document.getElementById('search-input').addEventListener('input', (e) => {
       if (this.searchTimer) clearTimeout(this.searchTimer);
