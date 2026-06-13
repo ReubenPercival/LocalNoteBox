@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalNoteBox</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>LocalNoteBox</h1>
+      <div class="header-controls">
+        <input type="text" id="search-input" placeholder="Search notes..." />
+        <button id="btn-export" title="Export notes as JSON">Export</button>
+        <button id="btn-import" title="Import notes from JSON">Import</button>
+        <button id="btn-sync" title="Sync encrypted notes to server">Sync</button>
+      </div>
+    </header>
+    <main>
+      <aside id="sidebar">
+        <button id="btn-new-note" class="btn-primary">+ New Note</button>
+        <div id="tag-filter"></div>
+        <div id="note-list"></div>
+      </aside>
+      <section id="editor">
+        <div id="editor-empty" class="editor-empty">
+          <div class="empty-icon">📝</div>
+          <h2>LocalNoteBox</h2>
+          <p>Your notes are stored locally in your browser.</p>
+          <p>Create a new note or select one from the sidebar.</p>
+        </div>
+        <div id="editor-active" class="editor-active" style="display:none">
+          <div class="editor-header">
+            <input type="text" id="note-title" placeholder="Note title..." />
+            <input type="text" id="note-tags" placeholder="Tags (comma separated)" />
+          </div>
+          <div class="editor-panes">
+            <textarea id="note-content" placeholder="Write your note in Markdown..."></textarea>
+            <div id="note-preview" class="markdown-preview"></div>
+          </div>
+          <div class="editor-footer">
+            <label class="toggle-label">
+              <input type="checkbox" id="toggle-preview" checked />
+              <span>Live Preview</span>
+            </label>
+            <span id="save-indicator" class="save-indicator"></span>
+            <button id="btn-delete-note" class="btn-danger">Delete Note</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <input type="file" id="import-input" accept=".json" style="display:none" />
+
+  <div id="sync-modal" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <h2>Sync</h2>
+      <div class="form-group">
+        <label>Server URL</label>
+        <input type="text" id="sync-url" value="http://localhost:4040" placeholder="http://localhost:4040" />
+      </div>
+      <div class="form-group">
+        <label>Encryption Passphrase</label>
+        <input type="password" id="sync-passphrase" placeholder="Enter passphrase" />
+      </div>
+      <div class="modal-actions">
+        <button id="btn-sync-push" class="btn-primary">Push to Server</button>
+        <button id="btn-sync-pull" class="btn-secondary">Pull from Server</button>
+        <button id="btn-sync-close" class="btn-ghost">Close</button>
+      </div>
+      <p id="sync-status" class="sync-status"></p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@5/marked.min.js"></script>
+  <script src="/js/db.js"></script>
+  <script src="/js/crypto.js"></script>
+  <script src="/js/sync.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
